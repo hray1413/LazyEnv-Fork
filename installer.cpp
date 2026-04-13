@@ -20,7 +20,7 @@
 // ============================================================================
 
 #include "installer.h"
-#include "rollback.h"   // For environment variable helpers
+#include "rollback.h"
 
 #include <Windows.h>
 
@@ -60,18 +60,16 @@ InstallResult Installer::installPackage(const PackageInfo& pkg) {
         progressCb_(pkg.id, InstallStatus::Running,
                     "Installing " + pkg.displayName + "...");
 
-    // Build winget command
     std::string cmd = std::format(
         "winget install --id {} --exact --silent "
         "--accept-package-agreements --accept-source-agreements",
         pkg.id);
 
-    result.exitCode = runCommand(cmd, result.output, 600000); // 10 min timeout
+    result.exitCode = runCommand(cmd, result.output, 600000);
 
     if (result.exitCode == 0) {
         result.status = InstallStatus::Success;
 
-        // Add to PATH if requested
         if (pkg.addToPath && !pkg.defaultPath.empty()) {
             addToUserPath(pkg.defaultPath);
         }
@@ -80,7 +78,6 @@ InstallResult Installer::installPackage(const PackageInfo& pkg) {
             progressCb_(pkg.id, InstallStatus::Success,
                         pkg.displayName + " installed successfully.");
     } else {
-        // Check if already installed (winget returns specific codes)
         if (result.output.find("already installed") != std::string::npos ||
             result.output.find("No available upgrade") != std::string::npos) {
             result.status = InstallStatus::Skipped;
@@ -118,12 +115,10 @@ std::vector<InstallResult> Installer::installBatch(
 bool Installer::addToUserPath(const std::string& directory) {
     std::string currentPath = RollbackManager::readEnvVariable("Path", false);
 
-    // Normalize: ensure no trailing backslash for comparison
     std::string normalized = directory;
     while (!normalized.empty() && (normalized.back() == '\\' || normalized.back() == '/'))
         normalized.pop_back();
 
-    // Check if already present (case-insensitive)
     std::string lowerPath = currentPath;
     std::string lowerDir  = normalized;
     std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
@@ -132,9 +127,8 @@ bool Installer::addToUserPath(const std::string& directory) {
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     if (lowerPath.find(lowerDir) != std::string::npos)
-        return true; // Already present
+        return true;
 
-    // Append
     std::string newPath = currentPath;
     if (!newPath.empty() && newPath.back() != ';')
         newPath += ';';
@@ -153,7 +147,6 @@ bool Installer::removeFromUserPath(const std::string& directory) {
     while (!normalized.empty() && (normalized.back() == '\\' || normalized.back() == '/'))
         normalized.pop_back();
 
-    // Case-insensitive removal
     std::string lowerPath = currentPath;
     std::string lowerDir  = normalized;
     std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
@@ -163,9 +156,8 @@ bool Installer::removeFromUserPath(const std::string& directory) {
 
     auto pos = lowerPath.find(lowerDir);
     if (pos == std::string::npos)
-        return true; // Not present, nothing to do
+        return true;
 
-    // Remove the entry and surrounding semicolons
     size_t end = pos + normalized.size();
     if (end < currentPath.size() && currentPath[end] == ';') ++end;
     else if (pos > 0 && currentPath[pos - 1] == ';') --pos;
@@ -186,7 +178,7 @@ bool Installer::isCommandAvailable(const std::string& command) {
 }
 
 // ---------------------------------------------------------------------------
-// Command execution helpers (shared pipe setup)
+// Command execution helpers
 // ---------------------------------------------------------------------------
 namespace {
 
@@ -228,7 +220,7 @@ bool launchProcess(const std::string& cmdLine, HANDLE hWritePipe,
 } // anonymous namespace
 
 // ---------------------------------------------------------------------------
-// Blocking command execution with full output capture
+// Blocking command execution
 // ---------------------------------------------------------------------------
 int Installer::runCommand(const std::string& cmdLine,
                           std::string& output,
@@ -246,7 +238,6 @@ int Installer::runCommand(const std::string& cmdLine,
     }
     CloseHandle(ph.hWrite);
 
-    // Read all output
     char buf[4096];
     DWORD bytesRead = 0;
     while (ReadFile(ph.hRead, buf, sizeof(buf) - 1, &bytesRead, nullptr) && bytesRead > 0) {
@@ -266,7 +257,7 @@ int Installer::runCommand(const std::string& cmdLine,
 }
 
 // ---------------------------------------------------------------------------
-// Streaming command execution with line-by-line callback
+// Streaming command execution
 // ---------------------------------------------------------------------------
 int Installer::runCommandStreaming(const std::string& cmdLine,
                                   std::string& fullOutput,
@@ -285,7 +276,6 @@ int Installer::runCommandStreaming(const std::string& cmdLine,
     }
     CloseHandle(ph.hWrite);
 
-    // Read output and split into lines, calling onLine for each
     std::string lineBuffer;
     char buf[1024];
     DWORD bytesRead = 0;
@@ -294,10 +284,8 @@ int Installer::runCommandStreaming(const std::string& cmdLine,
         buf[bytesRead] = '\0';
         fullOutput += buf;
 
-        // Split into lines
         for (DWORD i = 0; i < bytesRead; ++i) {
             if (buf[i] == '\n') {
-                // Trim trailing \r
                 if (!lineBuffer.empty() && lineBuffer.back() == '\r')
                     lineBuffer.pop_back();
                 if (onLine && !lineBuffer.empty())
@@ -309,7 +297,6 @@ int Installer::runCommandStreaming(const std::string& cmdLine,
         }
     }
 
-    // Flush remaining partial line
     if (!lineBuffer.empty()) {
         if (lineBuffer.back() == '\r') lineBuffer.pop_back();
         if (onLine && !lineBuffer.empty())
@@ -418,6 +405,32 @@ std::vector<PackageInfo> getDefaultCatalog() {
 
         {"WinSCP.WinSCP", "WinSCP", "utility",
          "SFTP/SCP/FTP client for Windows",
+         "", false},
+
+        {"curl.curl", "curl", "utility",
+         "Command-line tool for transferring data with URLs",
+         "", true},
+
+        // --- Browsers ---
+        {"Google.Chrome", "Google Chrome", "browser",
+         "Fast and secure web browser by Google",
+         "", false},
+
+        {"Mozilla.Firefox", "Mozilla Firefox", "browser",
+         "Open-source web browser by Mozilla",
+         "", false},
+
+        {"Microsoft.Edge", "Microsoft Edge", "browser",
+         "Chromium-based browser by Microsoft",
+         "", false},
+
+        {"Brave.Brave", "Brave Browser", "browser",
+         "Privacy-focused Chromium-based browser",
+         "", false},
+
+        // --- Media ---
+        {"Bilibili.Bilibili", "嗶哩嗶哩", "media",
+         "Bilibili desktop client for Windows",
          "", false},
     };
 }
