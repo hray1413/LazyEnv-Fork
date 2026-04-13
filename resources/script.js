@@ -164,6 +164,11 @@
                     showToast(t("env.uninstallFailed"), "error");
                 }
                 break;
+
+            // ---- 必剪安裝進度 ----
+            case "bcutProgress":
+                handleBcutProgress(d);
+                break;
         }
     }
 
@@ -260,6 +265,18 @@
         }
         if (obj.action === "windowMinimize" || obj.action === "windowMaximize" || obj.action === "windowClose" || obj.action === "windowDragStart") {
             console.log("Window action:", obj.action);
+        }
+        // ---- Mock 必剪安裝 ----
+        if (obj.action === "installBcut") {
+            setTimeout(function () {
+                handleNative({ action: "bcutProgress", status: "downloading", message: "正在下載必剪安裝包..." });
+            }, 300);
+            setTimeout(function () {
+                handleNative({ action: "bcutProgress", status: "installing", message: "正在執行必剪安裝程式..." });
+            }, 1800);
+            setTimeout(function () {
+                handleNative({ action: "bcutProgress", status: "success", message: "必剪安裝程式已啟動，請依照指示完成安裝。" });
+            }, 2800);
         }
     }
 
@@ -366,7 +383,6 @@
     function getCategoryLabel(cat) {
         var key = "category." + cat;
         var result = t(key);
-        // If t() returns the key itself, it means no translation; use raw category
         return result === key ? cat : result;
     }
 
@@ -388,7 +404,6 @@
             return;
         }
 
-        // Group by category
         var groups = {};
         var order = ["language", "tool", "runtime", "utility", "editor", "database", "other"];
         envs.forEach(function (e) {
@@ -600,6 +615,44 @@
         navigateTo("install");
         startInstall();
     });
+
+    // -----------------------------------------------------------------------
+    // 必剪 (Bcut) special installer
+    // -----------------------------------------------------------------------
+    var bcutBtn = document.getElementById("btnInstallBcut");
+
+    if (bcutBtn) {
+        bcutBtn.addEventListener("click", function () {
+            sendNative({ action: "installBcut" });
+            setBcutStatus("downloading", "⬇ 下載中...");
+            bcutBtn.disabled = true;
+        });
+    }
+
+    function setBcutStatus(type, message) {
+        var el = document.getElementById("bcutStatus");
+        if (!el) return;
+        el.textContent = message;
+        el.className = "special-pkg-card__status status--" + type;
+    }
+
+    function handleBcutProgress(d) {
+        var labels = {
+            downloading: "⬇ 下載中...",
+            installing:  "⚙ 安裝程式執行中...",
+            success:     "✓ 安裝程式已啟動",
+            failed:      "✗ 失敗：" + (d.message || "")
+        };
+        setBcutStatus(d.status, labels[d.status] || d.message || "");
+
+        if (d.status === "success") {
+            showToast("必剪安裝程式已啟動，請依照指示完成安裝。", "success");
+        }
+        if (d.status === "failed") {
+            showToast("必剪下載失敗：" + (d.message || ""), "error");
+            if (bcutBtn) bcutBtn.disabled = false; // 允許重試
+        }
+    }
 
     // -----------------------------------------------------------------------
     // Installation
