@@ -18,16 +18,11 @@
 
 // ============================================================================
 // LazyEnv - script.js
-// Frontend: sidebar navigation, home env detection, manual add, install
-// progress with streaming log, retry, window drag, i18n support
 // ============================================================================
 
 (function () {
     "use strict";
 
-    // -----------------------------------------------------------------------
-    // i18n shorthand
-    // -----------------------------------------------------------------------
     var t = window.LazyEnvI18n.t;
 
     // -----------------------------------------------------------------------
@@ -36,11 +31,11 @@
     var currentPage = "home";
     var catalog = [];
     var selectedPackages = new Set();
-    var installResults = new Map();   // id -> {status, message, command, output, exitCode}
-    var installLogs = new Map();      // id -> [line, line, ...]
+    var installResults = new Map();
+    var installLogs = new Map();
     var preInstallSnapshotId = "";
     var detectedEnvironments = [];
-    var manualEnvironments = [];       // manually added envs
+    var manualEnvironments = [];
     var installTotal = 0;
     var installCurrent = 0;
     var isMaximized = false;
@@ -165,7 +160,6 @@
                 }
                 break;
 
-            // ---- 必剪安裝進度 ----
             case "bcutProgress":
                 handleBcutProgress(d);
                 break;
@@ -188,6 +182,8 @@
                         { name: "Rust (rustc)", command: "rustc", version: "rustc 1.75.0", category: "language" },
                         { name: "Docker", command: "docker", version: "Docker version 24.0.7", category: "runtime" },
                         { name: "curl", command: "curl", version: "curl 8.4.0", category: "utility" },
+                        { name: "Google Chrome", command: "Google Chrome", version: "installed", category: "browser" },
+                        { name: "嗶哩嗶哩", command: "嗶哩嗶哩", version: "installed", category: "media" },
                     ]
                 });
             }, 800);
@@ -220,6 +216,11 @@
                         { id: "Kitware.CMake", name: "CMake", category: "tool", description: "Build system generator" },
                         { id: "Microsoft.VisualStudioCode", name: "VS Code", category: "editor", description: "Code editor by Microsoft" },
                         { id: "Docker.DockerDesktop", name: "Docker Desktop", category: "runtime", description: "Container platform" },
+                        { id: "Google.Chrome", name: "Google Chrome", category: "browser", description: "Fast and secure web browser by Google" },
+                        { id: "Mozilla.Firefox", name: "Mozilla Firefox", category: "browser", description: "Open-source web browser by Mozilla" },
+                        { id: "Microsoft.Edge", name: "Microsoft Edge", category: "browser", description: "Chromium-based browser by Microsoft" },
+                        { id: "Brave.Brave", name: "Brave Browser", category: "browser", description: "Privacy-focused Chromium-based browser" },
+                        { id: "Bilibili.Bilibili", name: "嗶哩嗶哩", category: "media", description: "Bilibili desktop client for Windows" },
                     ]
                 });
             }, 200);
@@ -266,7 +267,6 @@
         if (obj.action === "windowMinimize" || obj.action === "windowMaximize" || obj.action === "windowClose" || obj.action === "windowDragStart") {
             console.log("Window action:", obj.action);
         }
-        // ---- Mock 必剪安裝 ----
         if (obj.action === "installBcut") {
             setTimeout(function () {
                 handleNative({ action: "bcutProgress", status: "downloading", message: "正在下載必剪安裝包..." });
@@ -314,7 +314,6 @@
         window.LazyEnvI18n.setLocale(langSelect.value);
     });
 
-    // Re-render dynamic content when locale changes
     window.addEventListener("lazyenv:localeChanged", function () {
         t = window.LazyEnvI18n.t;
         renderEnvironments(document.getElementById("envSearch").value);
@@ -405,7 +404,7 @@
         }
 
         var groups = {};
-        var order = ["language", "tool", "runtime", "utility", "editor", "database", "other"];
+        var order = ["language", "tool", "runtime", "utility", "editor", "database", "browser", "media", "other"];
         envs.forEach(function (e) {
             var cat = e.category || "other";
             if (!groups[cat]) groups[cat] = [];
@@ -494,14 +493,12 @@
         if (d.found) {
             status.textContent = t("probe.found", d.version);
             status.className = "add-env-form__status success";
-
             manualEnvironments.push({
                 name: d.name,
                 command: d.command,
                 version: d.version,
                 category: d.category || "other"
             });
-
             document.getElementById("addEnvCommand").value = "";
             renderEnvironments(document.getElementById("envSearch").value);
             showToast(t("probe.addedToast", d.name, d.version), "success");
@@ -558,7 +555,7 @@
         }
 
         var groups = {};
-        var order = ["language", "tool", "editor", "runtime", "database", "utility"];
+        var order = ["language", "tool", "editor", "runtime", "database", "utility", "browser", "media"];
         pkgs.forEach(function (p) {
             var cat = p.category || "other";
             if (!groups[cat]) groups[cat] = [];
@@ -650,7 +647,7 @@
         }
         if (d.status === "failed") {
             showToast("必剪下載失敗：" + (d.message || ""), "error");
-            if (bcutBtn) bcutBtn.disabled = false; // 允許重試
+            if (bcutBtn) bcutBtn.disabled = false;
         }
     }
 
@@ -744,7 +741,6 @@
                 html += '<div class="progress-item__output">' + esc(r.output) + '</div>';
             }
             html += '</div>';
-
             html += '</div>';
         });
 
