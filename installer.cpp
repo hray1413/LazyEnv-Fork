@@ -432,6 +432,10 @@ std::vector<PackageInfo> getDefaultCatalog() {
         {"Bilibili.Bilibili", "嗶哩嗶哩", "media",
          "Bilibili desktop client for Windows",
          "", false},
+
+        {"xp9km3g0bf7zv5", "必剪", "media",
+         "Video editor specifically for Bilibili creators (via MS Store)",
+         "", false},
     };
 }
 
